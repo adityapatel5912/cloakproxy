@@ -1,0 +1,16 @@
+{
+  "parameters": {
+    "compliance_preset": {
+      "defaultValue": {
+        "value": "{\"presetId\":\"CODE_BALANCED\",\"entropyThreshold\":3.8,\"minEntropySpanLength\":20,\"ruleSets\":{\"apiKeys\":true,\"jwts\":true,\"emails\":true,\"internalUrls\":false,\"envAssignments\":true},\"astEnabled\":true,\"classifyGenericIdentifiers\":false,\"identifierChunkSize\":200,\"localContextClues\":12,\"allowCloud\":true,\"cloudModel\":\"gemini-3.5-flash\",\"liteModel\":\"gemini-3.5-flash-lite\",\"redTeamIterations\":4,\"redTeamEnabled\":true,\"telemetryVerbosity\":\"STAGES_ONLY\"}"
+      },
+      "description": "CloakProxy live strictness preset: STRICT_SOC2 | CODE_BALANCED | OSS_PERMISSIVE (full CompliancePolicyConfig JSON)"
+    },
+    "cloud_kill_switch": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Fleet-wide emergency switch: disables the ONLY_IN_CLOUD stage regardless of preset."
+    }
+  }
+}

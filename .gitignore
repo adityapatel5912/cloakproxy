@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.vite/
+.env
+.env.local
+.env.*.local
+key.pem
+.DS_Store
+extension_public_key.txt
+test-results/
+playwright-report/
+.firebaserc.local
+
+# Local agent-harness state (machine-specific, not part of the extension)
+.agents/
+skills-lock.json
+opencode.json

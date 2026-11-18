@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "CloakProxy — Zero-Trust AI Dev Workbench",
+  "short_name": "CloakProxy",
+  "version": "2.0.0",
+  "description": "Inspect, sanitize, refactor and audit sensitive code with split-brain hybrid AI. Zero raw PII leaves your device.",
+  "minimum_chrome_version": "138",
+  "key": "__EXTENSION_PUBLIC_KEY__",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open CloakProxy Workbench",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": ["sidePanel", "contextMenus", "storage"],
+  "host_permissions": [
+    "https://firebaseinstallations.googleapis.com/*",
+    "https://firebaseappcheck.googleapis.com/*",
+    "https://identitytoolkit.googleapis.com/*",
+    "https://firebaseremoteconfig.googleapis.com/*",
+    "https://firestore.googleapis.com/*",
+    "https://firebaselogging-pa.googleapis.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://*.googleusercontent.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; frame-src https://www.google.com/ https://www.gstatic.com/; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.googleusercontent.com https://*.firebaseio.com"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K"
+      }
+    }
+  }
+}

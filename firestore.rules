@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // Zero-knowledge guard: defense-in-depth mirroring the client pre-flight
+    // leak assertion. Even a compromised client must not be able to persist
+    // raw secrets or PII into the audit trail.
+    function isZeroKnowledge(value) {
+      return value is string
+        && !(value.matches('(?i).*sk_(live|test)_.*')
+          || value.matches('(?i).*AKIA[0-9A-Z]{16}.*')
+          || value.matches('(?i).*gh[pousr]_[A-Za-z0-9]{20,}.*')
+          || value.matches('(?i).*xox[baprs]-.*')
+          || value.matches('(?i).*AIza[0-9A-Za-z_-]{30,}.*')
+          || value.matches('(?i).*eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\..*')
+          || value.matches('(?i)[^@]*@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}'));
+    }
+
+    function docIsZeroKnowledge(data) {
+      return data.keys().hasOnly(
+        ['callId','sessionId','uidHash','stage','mode','inferenceSource','model',
+         'fallbackUsed','latencyMs','promptTokenEstimate','completionTokenEstimate',
+         'status','errorCode','preset','clientTs','auditId','score','grade',
+         'attackVectorsTried','leaksDetected','findings','probeLatencyMs','cloudModel','completedAt'])
+        && data.uidHash is string
+        && data.stage is string
+        && data.mode is string;
+    }
+
+    // Per-user audit trail: only the signed-in anonymous owner may read/write.
+    match /audit/{uid}/{collection}/{docId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == uid
+        && docIsZeroKnowledge(request.resource.data);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
