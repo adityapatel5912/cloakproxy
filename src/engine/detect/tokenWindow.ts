@@ -41,7 +41,10 @@ export function scanEnvAssignments(
       ruleId: "tokenWindow.envValue",
       original: valueWithQuotes,
       origin: "tokenWindow",
-      precedence: 0,
+      // Structural whole-value detection outranks EVERYTHING nested within it
+      // (regex email/URL hits, entropy fragments): splitting an .env value at a
+      // nested-match boundary would leak partial secrets around the vault key.
+      precedence: 4,
       safePreview: redactPreview(valueWithQuotes),
     });
   }
@@ -69,7 +72,8 @@ export function scanJsonSecrets(raw: string): SpanMatch[] {
         ruleId: "tokenWindow.jsonSecret",
         original: valueRaw,
         origin: "tokenWindow",
-        precedence: 0,
+        // Structural whole-value detection outranks nested matches (see envValue).
+        precedence: 4,
         safePreview: redactPreview(valueRaw),
       });
     }

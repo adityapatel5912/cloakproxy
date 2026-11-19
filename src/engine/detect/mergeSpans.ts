@@ -2,7 +2,9 @@ import type { SourceSpan, SpanMatch } from "../types.js";
 
 /**
  * Stage 1A — overlap resolution.
- * Precedence: regex (3) > ast (2) > entropy (1) > tokenWindow (0).
+ * Precedence: structural env/json value (4) > regex (3) > ast (2) > entropy (1)
+ * > tokenWindow (0). Structural whole-value spans sit at the top so a nested
+ * email/URL/entropy hit can never fragment an .env value (partial-secret leak).
  * When spans overlap, the higher-precedence detection wins; equal precedence
  * prefers the longer span. Output is sorted by start offset ascending.
  */
