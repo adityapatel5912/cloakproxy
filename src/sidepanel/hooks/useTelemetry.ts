@@ -28,8 +28,8 @@ export function logHybridCall(
     uidHash: boot.uidHash,
     stage,
     mode,
-    inferenceSource: meta.inferenceSource,
-    model: meta.model,
+    ...(meta.inferenceSource ? { inferenceSource: meta.inferenceSource } : {}),
+    ...(meta.model ? { model: meta.model } : {}),
     fallbackUsed:
       meta.status === "FALLBACK" ||
       (mode === "PREFER_ON_DEVICE" && meta.inferenceSource === "IN_CLOUD"),
@@ -37,11 +37,15 @@ export function logHybridCall(
     promptTokenEstimate: Math.ceil(promptChars / 4),
     completionTokenEstimate: Math.ceil(completionChars / 4),
     status: mapStatus(meta.status),
-    errorCode: meta.errorCode,
+    ...(meta.errorCode ? { errorCode: meta.errorCode } : {}),
     preset: policy.presetId,
     clientTs: Date.now(),
   };
-  boot.telemetry.logCall(telemetry);
+  try {
+    boot.telemetry.logCall(telemetry);
+  } catch {
+    // Telemetry is observability, never a pipeline dependency.
+  }
   return telemetryToLogItem(telemetry);
 }
 

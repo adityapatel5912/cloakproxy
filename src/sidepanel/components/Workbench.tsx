@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useMemo, useReducer, useState } from "react";
 import type { BootResult } from "../bootstrap.js";
-import { useHybridCall } from "../hooks/useHybridCall.js";
+import { useHybridCall, withPipelineSafety } from "../hooks/useHybridCall.js";
 import { usePendingCapture } from "../hooks/usePendingCapture.js";
+import { probeLanguageModel, type GateState } from "../preflight/languageModelGate.js";
 import { initialState, reducer } from "../state/workbenchMachine.js";
 import { AirGapToggle } from "./AirGapToggle.js";
 import { ComplianceSwitcher } from "./ComplianceSwitcher.js";
@@ -19,7 +20,8 @@ interface Props {
 
 export function Workbench({ boot }: Props) {
   const [state, dispatch] = useReducer(reducer, boot.policy, initialState);
-  const actions = useHybridCall(boot, state, dispatch);
+  const [gate, setGate] = useState<GateState>(boot.gate);
+  const actions = withPipelineSafety(useHybridCall(boot, gate, state, dispatch), dispatch);
 
   const capture = useCallback(
     (text: string, source: string) => {
@@ -44,8 +46,8 @@ export function Workbench({ boot }: Props) {
   }, [actions, state.raw, state.policy, state.airGap]);
 
   const nanoReady = useMemo(
-    () => boot.aiReady && boot.gate.availability === "available",
-    [boot.aiReady, boot.gate.availability],
+    () => boot.aiReady && gate.availability === "available",
+    [boot.aiReady, gate.availability],
   );
 
   return (
@@ -85,9 +87,14 @@ export function Workbench({ boot }: Props) {
 
       <div className="diagnostic-row">
         <PreflightModelCard
-          gate={boot.gate}
+          gate={gate}
           progress={state.downloadProgress}
-          onDownload={() => void actions.runDownload()}
+          onDownload={async () => {
+            await actions.runDownload();
+            // Re-probe after create(): the model becomes available immediately
+            // on completion, and Stage 1B must see the fresh availability.
+            setGate(await probeLanguageModel());
+          }}
         />
         <StageRail
           phase={state.phase}

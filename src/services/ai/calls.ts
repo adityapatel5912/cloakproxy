@@ -107,7 +107,15 @@ export async function classifyIdentifiers(
       const model = getModel("classifier");
       const result = await model.generateContent(classifierPrompt(payload));
       lastResponse = result.response;
-      const parsed = parseJsonLoose<{ classifications?: unknown }>(result.response.text());
+      const rawText = result.response.text();
+      // Chromium ships a Prompt API stub that echoes the prompt; treat it as
+      // "on-device unavailable" instead of parsing garbage / claiming ON_DEVICE.
+      if (/On-device model is not available in Chromium/i.test(rawText)) {
+        throw new Error(
+          "ON_DEVICE_STUB: this Chromium build echoes prompts instead of running Gemini Nano",
+        );
+      }
+      const parsed = parseJsonLoose<{ classifications?: unknown }>(rawText);
       const rows = Array.isArray(parsed.classifications) ? parsed.classifications : [];
       for (const row of rows) {
         const r = row as Record<string, unknown>;
@@ -247,7 +255,14 @@ export async function airGapQa(
     const model = getModel("qa");
     const result = await model.generateContent(airGapQaPrompt(question, localContext));
     response = result.response;
-    return { data: result.response.text(), meta: metaFor(start, response, "gemini-nano-4") };
+    const answer = result.response.text();
+    if (/On-device model is not available in Chromium/i.test(answer)) {
+      return {
+        data: "",
+        meta: { ...metaFor(start, response, "gemini-nano-4"), status: "ERROR", errorCode: "ON_DEVICE_STUB" },
+      };
+    }
+    return { data: answer, meta: metaFor(start, response, "gemini-nano-4") };
   } catch (err) {
     return { data: "", meta: metaFor(start, response, "gemini-nano-4", err) };
   }

@@ -31,8 +31,8 @@ export function SanitizedPacketPane({ sanitized, vault, assertion, logs }: Props
           logs.map((log) => (
             <span
               key={log.id}
-              className={`pill ${log.source === "ON_DEVICE" ? "on-device" : "in-cloud"}`}
-              title={`${log.stage} · ${log.mode} · ${log.model ?? "local"}`}
+              className={`pill ${log.source === "ON_DEVICE" ? "on-device" : log.source === "IN_CLOUD" ? "in-cloud" : "muted"} ${log.status === "ERROR" || log.status === "RATE_LIMITED" ? "status-error" : ""}`}
+              title={`${log.stage} · ${log.mode} · ${log.model ?? "local"} · ${log.status}`}
             >
               {log.stage} · {log.source ?? log.mode} · {log.latencyMs}ms
             </span>

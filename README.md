@@ -91,7 +91,7 @@ Import boundaries are CI-enforced (`npm run boundaries`): `src/engine/**` may no
 
 - Node.js 20+, npm
 - Chrome 138+ (x64)
-- A Firebase project (Blaze plan required by Google for Gemini Developer API usage beyond the free tier)
+- A Firebase project on the **Blaze plan** — Firebase AI Logic requires a linked billing account (the Gemini Developer API free-tier quota still applies). Without billing, model calls fail with `USER_PROJECT_DENIED`.
 
 ### 2. Install & provision Firebase
 

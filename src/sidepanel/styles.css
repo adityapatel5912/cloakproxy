@@ -259,6 +259,7 @@ mark.hl-safe { border-color: #0b6b4d; background: rgba(15,164,127,.10); }
 .pill.on-device { color: var(--green); border-color: #bfe5d4; background: var(--green-soft); }
 .pill.in-cloud { color: var(--cyan); border-color: #bcdcea; background: #e6f4f8; }
 .pill.muted { color: var(--faint); }
+.pill.status-error { color: #9f1239; border-color: #f3c6d3; background: var(--red-soft); }
 
 .vault-legend { padding: 10px 16px 14px; border-top: 1px solid var(--line); background: #fbfcfd; }
 .vault-scroll { max-height: 120px; overflow: auto; margin-top: 6px; display: grid; gap: 4px; }

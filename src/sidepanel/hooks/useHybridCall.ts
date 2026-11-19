@@ -24,7 +24,8 @@ import {
   refactorInCloud,
   sessionTitle,
 } from "../../services/ai/calls.js";
-import { downloadLanguageModel } from "../preflight/languageModelGate.js";
+import { downloadLanguageModel, probeLanguageModel } from "../preflight/languageModelGate.js";
+import type { GateState } from "../preflight/languageModelGate.js";
 import type { BootResult } from "../bootstrap.js";
 import type { Action, WorkbenchState } from "../state/workbenchMachine.js";
 import { localLog, logHybridCall } from "./useTelemetry.js";
@@ -36,12 +37,40 @@ export interface WorkbenchActions {
   runDownload: () => Promise<void>;
 }
 
+/** Maps raw SDK/HTTP failures to actionable HUD copy. */
+function friendlyCloudError(raw?: string): string {
+  const text = raw ?? "";
+  if (/USER_PROJECT_DENIED|does not have permission|billing|BILLING/i.test(text)) {
+    return "AI Logic requires the Blaze plan. Link a billing account in Firebase Console → Usage and billing, then retry. The vault stays local.";
+  }
+  if (/requires the Firebase AI API|firebasevertexai\.googleapis\.com/i.test(text)) {
+    return "Firebase AI Logic is not usable yet: enable the Firebase AI Logic API and link Blaze billing, then retry. The vault stays local.";
+  }
+  if (/ON_DEVICE_STUB|echoes prompts/i.test(text)) {
+    return "This browser stubs the on-device model (Chromium). Use Google Chrome with the Prompt API flags to run Gemini Nano.";
+  }
+  if (/must enforce App Check|app.?check/i.test(text)) {
+    return "App Check rejected the request. Register this debug token under App Check → Manage debug tokens, then retry.";
+  }
+  if (/API has not been used|is disabled|SERVICE_DISABLED/i.test(text)) {
+    return "Firebase AI Logic API is not enabled for this project. Run `firebase init ailogic`, then retry.";
+  }
+  if (/RESOURCE_EXHAUSTED|\b429\b|quota/i.test(text)) {
+    return "Cloud quota reached. Retry shortly, or switch to Air-Gap mode.";
+  }
+  if (/UNAVAILABLE|network|fetch/i.test(text)) {
+    return "Cloud unreachable. The vault stays local — retry or use Air-Gap mode.";
+  }
+  return "Cloud refactor failed; the vault remains local. Retry or use Air-Gap mode.";
+}
+
 /**
  * Orchestrates the full 3-stage pipeline, hybrid calls, telemetry and state
  * transitions. The engine itself never touches Firebase; it is called here.
  */
 export function useHybridCall(
   boot: BootResult,
+  gate: GateState,
   state: WorkbenchState,
   dispatch: Dispatch<Action>,
 ): WorkbenchActions {
@@ -65,7 +94,7 @@ export function useHybridCall(
       const canClassify =
         boot.aiReady &&
         !boot.localOnly &&
-        boot.gate.availability === "available" &&
+        gate.availability === "available" &&
         bundle.payloads.length > 0 &&
         bundle.identifierUniverse.length > 0;
 
@@ -90,7 +119,7 @@ export function useHybridCall(
         dispatch({
           type: "CLASSIFIED",
           unresolved: [],
-          log: localLog("CLASSIFY_LOCAL", "ONLY_ON_DEVICE", detail, Math.round(performance.now() - t0)),
+          log: localLog("CLASSIFY_LOCAL", "HEURISTIC", detail, Math.round(performance.now() - t0)),
         });
       }
 
@@ -144,7 +173,7 @@ export function useHybridCall(
         dispatch({
           type: "ERROR",
           code: outcome.meta.errorCode ?? "CLOUD_CALL_FAILED",
-          message: "Cloud refactor failed; the vault remains local. Retry or use Air-Gap mode.",
+          message: friendlyCloudError(outcome.meta.errorCode),
           stage: "AWAIT_CLOUD",
         });
         // The log row is still emitted so the failure is visible in telemetry.
@@ -173,7 +202,7 @@ export function useHybridCall(
         dispatch({ type: "TITLE", title: titleOutcome.data.slice(0, 80), log: titleLog });
       }
     },
-    [boot, dispatch],
+    [boot, gate, dispatch],
   );
 
   const runRedTeam = useCallback(async () => {
@@ -212,18 +241,29 @@ export function useHybridCall(
 
   const runQa = useCallback(
     async (question: string) => {
-      if (!boot.aiReady || boot.gate.availability !== "available") {
+      if (!boot.aiReady || gate.availability !== "available") {
         dispatch({ type: "ERROR", code: "ON_DEVICE_UNAVAILABLE", message: "Gemini Nano is unavailable — local Q&A needs on-device inference.", stage: "AIR_GAP_LOCAL_QA" });
         return;
       }
       const outcome = await airGapQa(question, state.raw);
+      if (outcome.data.length === 0 && outcome.meta.status !== "OK") {
+        dispatch({
+          type: "ERROR",
+          code: outcome.meta.errorCode ?? "ON_DEVICE_UNAVAILABLE",
+          message: /ON_DEVICE_STUB/i.test(outcome.meta.errorCode ?? "")
+            ? "This browser stubs the on-device model (Chromium). Use Google Chrome with the Prompt API flags for Air-Gap Q&A."
+            : "On-device answer failed. Gemini Nano may still be loading — try again.",
+          stage: "AIR_GAP_LOCAL_QA",
+        });
+        return;
+      }
       const log = logHybridCall(
         boot, state.policy, "AIRGAP_QA", "AIR_GAP_PURE_LOCAL", outcome.meta,
         state.raw.length + question.length, outcome.data.length,
       );
       dispatch({ type: "QA_ANSWER", answer: outcome.data, log });
     },
-    [boot, dispatch, state.raw, state.policy],
+    [boot, gate, dispatch, state.raw, state.policy],
   );
 
   const runDownload = useCallback(async () => {
@@ -235,4 +275,41 @@ export function useHybridCall(
   }, [dispatch]);
 
   return { runPipeline, runRedTeam, runQa, runDownload };
+}
+
+/**
+ * Wraps the pipeline so an unexpected exception (telemetry write, SDK edge case)
+ * surfaces as a HUD error instead of a silent stall.
+ */
+export function withPipelineSafety(
+  actions: WorkbenchActions,
+  dispatch: Dispatch<Action>,
+): WorkbenchActions {
+  return {
+    ...actions,
+    runPipeline: async (raw, policy, airGap) => {
+      try {
+        await actions.runPipeline(raw, policy, airGap);
+      } catch (err) {
+        dispatch({
+          type: "ERROR",
+          code: "UNEXPECTED_PIPELINE_ERROR",
+          message: err instanceof Error ? err.message : String(err),
+          stage: "PIPELINE",
+        });
+      }
+    },
+    runRedTeam: async () => {
+      try {
+        await actions.runRedTeam();
+      } catch (err) {
+        dispatch({
+          type: "ERROR",
+          code: "UNEXPECTED_REDTEAM_ERROR",
+          message: err instanceof Error ? err.message : String(err),
+          stage: "RED_TEAM_RUNNING",
+        });
+      }
+    },
+  };
 }

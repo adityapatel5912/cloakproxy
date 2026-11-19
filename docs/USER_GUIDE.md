@@ -95,6 +95,7 @@ Never stored: raw code, identifiers, vault originals, model guesses (un-redacted
 | Notice: *Anonymous auth failed (auth/admin-restricted-operation)* | Firebase Console → Authentication → Sign-in method → enable **Anonymous**, then reload the panel |
 | Notice: *must enforce Firebase App Check* on first AI call | Register your debug token: Console → App Check → Apps → Manage debug tokens |
 | `PERMISSION_DENIED` on model calls | Run `npx -y firebase-tools@latest init ailogic` against the project |
+| `USER_PROJECT_DENIED` / *The caller does not have permission* | Link a billing account (Blaze plan) in Firebase Console → Usage and billing — AI Logic requires it |
 | `NANO 4 · UNAVAILABLE` | Enable the two `chrome://flags` listed on the card and relaunch Chrome |
 | Extension ID changed | Your local `extension_public_key.txt` is missing during build — the pinned `key` field was skipped |
 | Cloud stage silently skipped | Air-Gap is on, `cloud_kill_switch` is active, or the preset has `allowCloud: false` |

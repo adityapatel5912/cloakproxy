@@ -27,6 +27,26 @@ export interface TelemetryContext {
 
 type CompliancePresetIdLike = CompliancePolicyConfig["presetId"];
 
+/**
+ * Firestore rejects `undefined` field values with a synchronous throw.
+ * Optional telemetry fields (inferenceSource/model/errorCode) are absent for
+ * heuristic-only rows, so strip undefined recursively before every write.
+ */
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((v) => stripUndefined(v)) as unknown as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = stripUndefined(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 export class TelemetryService {
   private db: Firestore | null = null;
   private uid: string | null = null;
@@ -52,11 +72,16 @@ export class TelemetryService {
   logCall(t: HybridCallTelemetry): void {
     const ref = this.docRef("calls", t.callId);
     if (!ref) return;
-    const write = () => setDoc(ref, { ...t, clientTs: Date.now() });
-    if (navigator.onLine) {
-      void write().catch(() => this.enqueue(write));
-    } else {
-      this.enqueue(write);
+    const payload = stripUndefined({ ...t, clientTs: Date.now() });
+    const write = () => setDoc(ref, payload);
+    try {
+      if (navigator.onLine) {
+        void write().catch(() => this.enqueue(write));
+      } else {
+        this.enqueue(write);
+      }
+    } catch {
+      this.enqueue(write); // never let telemetry break the pipeline
     }
   }
 
@@ -64,10 +89,15 @@ export class TelemetryService {
     const ref = this.docRef("redteam", result.auditId);
     if (!ref) return;
     // Findings carry only vector names, outcomes, redacted previews and scores.
-    const write = () => setDoc(ref, { ...result });
-    if (navigator.onLine) {
-      void write().catch(() => this.enqueue(write));
-    } else {
+    const payload = stripUndefined({ ...result });
+    const write = () => setDoc(ref, payload);
+    try {
+      if (navigator.onLine) {
+        void write().catch(() => this.enqueue(write));
+      } else {
+        this.enqueue(write);
+      }
+    } catch {
       this.enqueue(write);
     }
   }
