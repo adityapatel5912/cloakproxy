@@ -1,5 +1,18 @@
 import { expect, test } from "./fixtures.js";
 import { STRIPE_LEAK_KEY } from "../../src/engine/samples.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+test("built manifest is MV3-valid: no remote script sources in the CSP (regression)", () => {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  const manifest = JSON.parse(readFileSync(resolve(root, "dist/manifest.json"), "utf8"));
+  const csp: string = manifest.content_security_policy.extension_pages;
+  expect(csp).toContain("script-src 'self'");
+  // MV3 rejects remote script sources outright, which prevents the whole
+  // extension from loading (ERR_BLOCKED_BY_CLIENT).
+  expect(csp).not.toMatch(/script-src[^;]*https:\/\//);
+});
 
 test("workbench renders all three glassbox panes and a preflight card", async ({ panel }) => {
   await expect(panel.getByText("RAW LOCAL INPUT")).toBeVisible();

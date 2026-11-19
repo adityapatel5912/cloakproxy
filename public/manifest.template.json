@@ -40,7 +40,7 @@
     "https://*.googleusercontent.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; frame-src https://www.google.com/ https://www.gstatic.com/; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.googleusercontent.com https://*.firebaseio.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.googleusercontent.com https://*.firebaseio.com"
   },
   "commands": {
     "_execute_action": {
