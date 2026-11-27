@@ -16,6 +16,13 @@ service cloud.firestore {
           || value.matches('(?i)[^@]*@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}'));
     }
 
+    // A string field must be free of secret-shaped content. Non-string values
+    // (numbers, booleans, nested objects) are structurally safe by definition.
+    function stringFieldSafe(data, key) {
+      let value = data.get(key, '');
+      return !(value is string) || isZeroKnowledge(value);
+    }
+
     function docIsZeroKnowledge(data) {
       return data.keys().hasOnly(
         ['callId','sessionId','uidHash','stage','mode','inferenceSource','model',
@@ -24,7 +31,22 @@ service cloud.firestore {
          'attackVectorsTried','leaksDetected','findings','probeLatencyMs','cloudModel','completedAt'])
         && data.uidHash is string
         && data.stage is string
-        && data.mode is string;
+        && data.mode is string
+        // Every string-valued field is checked, not just the required ones —
+        // otherwise errorCode can smuggle a raw secret past the server guard.
+        && stringFieldSafe(data, 'callId')
+        && stringFieldSafe(data, 'sessionId')
+        && stringFieldSafe(data, 'uidHash')
+        && stringFieldSafe(data, 'stage')
+        && stringFieldSafe(data, 'mode')
+        && stringFieldSafe(data, 'inferenceSource')
+        && stringFieldSafe(data, 'model')
+        && stringFieldSafe(data, 'status')
+        && stringFieldSafe(data, 'errorCode')
+        && stringFieldSafe(data, 'preset')
+        && stringFieldSafe(data, 'auditId')
+        && stringFieldSafe(data, 'grade')
+        && stringFieldSafe(data, 'cloudModel');
     }
 
     // Per-user audit trail: only the signed-in anonymous owner may read/write.

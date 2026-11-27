@@ -1,5 +1,7 @@
 # CloakProxy — Zero-Trust AI Dev Workbench
 
+[![CI](https://github.com/adityapatel5912/cloakproxy/actions/workflows/ci.yml/badge.svg)](https://github.com/adityapatel5912/cloakproxy/actions/workflows/ci.yml)
+
 > Inspect, sanitize, refactor and audit sensitive code with split-brain hybrid AI — **raw secrets never leave your device.**
 >
 > Chrome Manifest V3 Side Panel extension · TypeScript + Vite + React · Firebase AI Logic Web SDK (`firebase/ai` v13+)
