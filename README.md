@@ -10,6 +10,10 @@
 ![CloakProxy workbench (wide)](docs/assets/workbench-wide.png)
 ![CloakProxy workbench (side panel)](docs/assets/workbench-narrow.png)
 
+## Demo video
+
+[Watch the 30-second demo (MP4)](https://github.com/adityapatel5912/cloakproxy/releases/download/v2.0.0/cloakproxy-demo.mp4) — recorded from the unpacked MV3 extension in Chromium, edited with caption cards and an ElevenLabs voiceover. Shot list and narration notes: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
+
 ---
 
 ## Why
