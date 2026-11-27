@@ -4,6 +4,7 @@ import type {
   IdentifierVerdict,
   SourceSpan,
   SpanMatch,
+  SymbolClass,
   VaultPlanEntry,
 } from "./types.js";
 import type { ClassifierPayloadBundle } from "./classify/classifierTypes.js";
@@ -102,6 +103,22 @@ function isDeterministicSecret(m: SpanMatch): boolean {
 }
 
 /**
+ * When on-device classification is unavailable (Chromium stub / Nano missing),
+ * high-signal identifier names are classified by deterministic heuristics so
+ * proprietary logic and credential names are still vaulted instead of being
+ * sent to the cloud verbatim. Generic variables (index, units, i) stay SAFE.
+ */
+const SECRET_NAME_HINT = /(?:secret|token|password|passwd|api[_-]?key|credential|private)/i;
+const PROPRIETARY_NAME_HINT = /(?:margin|discount|pricing|price|revenue|forecast|floor|tier|multiplier|strategy)/i;
+
+function heuristicSymbolClass(original: string): SymbolClass | null {
+  if (original.length < 6) return null;
+  if (SECRET_NAME_HINT.test(original)) return "SECRET";
+  if (PROPRIETARY_NAME_HINT.test(original)) return "PROPRIETARY_LOGIC";
+  return null;
+}
+
+/**
  * Merge deterministic ground truth + reconciled on-device verdicts into the
  * final vault plan. Deterministic hits can only ADD flags; LLM verdicts can
  * never downgrade them. Unmatched/missing verdicts default to SAFE (tokens are
@@ -146,6 +163,19 @@ export function planVault(
       classification = verdict.symbolClass;
       confidence = Math.max(0, Math.min(1, verdict.confidence));
       classifiedBy = "on_device_llm";
+    } else if (
+      !verdict &&
+      generic.has(original.toLowerCase()) === false &&
+      group.matches.some((m) => m.ruleId === "ast.identifier" || m.ruleId === "ast.stringLiteral")
+    ) {
+      // Nano unavailable/stubbed — deterministic naming heuristics still
+      // protect proprietary logic and credential-shaped identifiers.
+      const heuristic = heuristicSymbolClass(original);
+      if (heuristic) {
+        classification = heuristic;
+        confidence = 0.75;
+        classifiedBy = "heuristic";
+      }
     }
 
     const occurrences: SourceSpan[] = group.matches.map((m) => m.span);

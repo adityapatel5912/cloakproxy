@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { Dispatch } from "react";
 import type {
   CompliancePolicyConfig,
@@ -74,8 +74,15 @@ export function useHybridCall(
   state: WorkbenchState,
   dispatch: Dispatch<Action>,
 ): WorkbenchActions {
+  // Monotonic run id: clicking a new sample / toggling Air-Gap while a cloud
+  // stream is in flight invalidates the old run, so late stream chunks or
+  // rehydrated output can never overwrite the newer sample's panes.
+  const runSeq = useRef(0);
+
   const runPipeline = useCallback(
     async (raw: string, policy: CompliancePolicyConfig, airGap: boolean) => {
+      const seq = ++runSeq.current;
+      const alive = () => runSeq.current === seq;
       if (raw.trim().length === 0) {
         dispatch({ type: "ERROR", code: "EMPTY_INPUT", message: "Paste, sample or select some code first.", stage: "IDLE" });
         return;
@@ -100,6 +107,7 @@ export function useHybridCall(
 
       if (canClassify) {
         const outcome = await classifyIdentifiers(bundle.payloads);
+        if (!alive()) return; // superseded by a newer capture
         const log = logHybridCall(
           boot, policy, "CLASSIFY_LOCAL", "ONLY_ON_DEVICE", outcome.meta,
           bundle.payloads.reduce((n, p) => n + p.identifiers.join(",").length, 0),
@@ -163,8 +171,11 @@ export function useHybridCall(
         policy,
         sanitizedResult.sanitized,
         "safe code review and refactor pass",
-        (partial) => dispatch({ type: "CLOUD_CHUNK", text: partial }),
+        (partial) => {
+          if (alive()) dispatch({ type: "CLOUD_CHUNK", text: partial });
+        },
       );
+      if (!alive()) return; // a newer sample started while we were streaming
       const log = logHybridCall(
         boot, policy, "REFACTOR_CLOUD", "ONLY_IN_CLOUD", outcome.meta,
         sanitizedResult.sanitized.length, outcome.data.length,
@@ -195,6 +206,7 @@ export function useHybridCall(
       // PREFER_ON_DEVICE low-latency session title on already-sanitized text.
       if (boot.aiReady && !boot.localOnly) {
         const titleOutcome = await sessionTitle(policy, sanitizedResult.sanitized);
+        if (!alive()) return;
         const titleLog = logHybridCall(
           boot, policy, "SESSION_TITLE", "PREFER_ON_DEVICE", titleOutcome.meta,
           Math.min(600, sanitizedResult.sanitized.length), titleOutcome.data.length,

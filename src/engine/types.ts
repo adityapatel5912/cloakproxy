@@ -37,7 +37,7 @@ export interface SpanMatch {
 }
 
 export type SymbolClass = "SECRET" | "PROPRIETARY_LOGIC" | "SAFE";
-export type ClassifiedBy = "deterministic" | "on_device_llm" | "default_safe";
+export type ClassifiedBy = "deterministic" | "on_device_llm" | "default_safe" | "heuristic";
 
 export interface VaultPlanEntry {
   readonly id: string;
