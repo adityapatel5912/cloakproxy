@@ -97,6 +97,7 @@ export type Action =
   | { type: "REHYDRATED"; result: RehydrateResult; syntaxNote: string; syntaxPassed: boolean }
   | { type: "RED_TEAM_START" }
   | { type: "RED_TEAM_DONE"; probes: readonly RedTeamProbeResponse[]; score: RedTeamScoreBreakdown; log: CallLogItem }
+  | { type: "RED_TEAM_FAILED" }
   | { type: "TITLE"; title: string; log: CallLogItem }
   | { type: "LOG"; log: CallLogItem }
   | { type: "QA_ANSWER"; answer: string; log: CallLogItem }
@@ -189,6 +190,9 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         redTeam: { running: false, score: action.score, probes: action.probes },
         logs: pushLog(state.logs, action.log),
       };
+    case "RED_TEAM_FAILED":
+      // Never leave the probe button stuck in "PROBING..." after a failed run.
+      return { ...state, phase: "COMPLETE", redTeam: { running: false, probes: [] } };
     case "TITLE":
       return { ...state, sessionTitle: action.title, logs: pushLog(state.logs, action.log) };
     case "LOG":

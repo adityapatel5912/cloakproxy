@@ -229,7 +229,13 @@ export function useHybridCall(
     }
     const start = performance.now();
     dispatch({ type: "RED_TEAM_START" });
-    const outcome = await redTeamProbe(state.policy, state.sanitized);
+    let outcome;
+    try {
+      outcome = await redTeamProbe(state.policy, state.sanitized);
+    } catch {
+      dispatch({ type: "RED_TEAM_FAILED" });
+      throw new Error("Red-Team Probe could not reach the cloud stage.");
+    }
     const score = scoreRedTeam(outcome.data, state.vault, state.policy.redTeamIterations);
     const log = logHybridCall(
       boot, state.policy, "RED_TEAM_CLOUD", "ONLY_IN_CLOUD", outcome.meta,
