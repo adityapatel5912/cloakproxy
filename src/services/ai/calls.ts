@@ -61,10 +61,12 @@ function readSource(response: unknown): Source | undefined {
 }
 
 function parseJsonLoose<T>(text: string): T {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  // Models often wrap JSON in markdown fences or add prose around it.
+  const cleaned = text.replace(/```(?:json)?/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
   if (start === -1 || end <= start) throw new Error("model returned no JSON object");
-  return JSON.parse(text.slice(start, end + 1)) as T;
+  return JSON.parse(cleaned.slice(start, end + 1)) as T;
 }
 
 async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
@@ -222,17 +224,21 @@ export async function redTeamProbe(
     // Optional free-cloud fallback for the whole adversarial audit.
     try {
       const vectors = RED_TEAM_VECTORS.slice(0, Math.min(iterations, RED_TEAM_VECTORS.length));
-      let fallbackModel = "";
-      for (const vector of vectors) {
-        const fb = await generateFreeCloud(`${vector.prompt}\n\nSanitized code:\n${sanitized}`);
-        fallbackModel = `${fb.provider}:${fb.model}`;
+      // Vectors are independent — run them in parallel so the whole audit lands
+      // in roughly one cloud round-trip instead of four sequential ones.
+      const results = await Promise.all(
+        vectors.map((vector) => generateFreeCloud(`${vector.prompt}\n\nSanitized code:\n${sanitized}`)),
+      );
+      const fallbackModel = `${results[0].provider}:${results[0].model}`;
+      results.forEach((fb, i) => {
+        const vector = vectors[i];
         const parsed = parseJsonLoose<RedTeamProbeResponse>(fb.text);
         probes.push({
           attackName: typeof parsed.attackName === "string" ? parsed.attackName : vector.name,
           guess: typeof parsed.guess === "string" ? parsed.guess : "",
           confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
         });
-      }
+      });
       return { data: probes, meta: metaFor(start, response, fallbackModel) };
     } catch {
       return { data: probes, meta: metaFor(start, response, policy.cloudModel, err) };
