@@ -10,6 +10,7 @@ extension_public_key.txt
 test-results/
 playwright-report/
 .firebaserc.local
+.review/
 
 # Local agent-harness state (machine-specific, not part of the extension)
 .agents/
