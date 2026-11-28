@@ -21,6 +21,8 @@ interface Props {
 export function Workbench({ boot }: Props) {
   const [state, dispatch] = useReducer(reducer, boot.policy, initialState);
   const [gate, setGate] = useState<GateState>(boot.gate);
+  // Narrow side-panel mode: one pane at a time (Raw / Packet / Output).
+  const [activeTab, setActiveTab] = useState<"raw" | "packet" | "output">("raw");
   const actions = withPipelineSafety(useHybridCall(boot, gate, state, dispatch), dispatch);
 
   const capture = useCallback(
@@ -86,16 +88,19 @@ export function Workbench({ boot }: Props) {
       )}
 
       <div className="diagnostic-row">
-        <PreflightModelCard
-          gate={gate}
-          progress={state.downloadProgress}
-          onDownload={async () => {
-            await actions.runDownload();
-            // Re-probe after create(): the model becomes available immediately
-            // on completion, and Stage 1B must see the fresh availability.
-            setGate(await probeLanguageModel());
-          }}
-        />
+        <details className="preflight-wrap">
+          <summary>Built-in AI · NANO 4 · {gate.availability.toUpperCase()}</summary>
+          <PreflightModelCard
+            gate={gate}
+            progress={state.downloadProgress}
+            onDownload={async () => {
+              await actions.runDownload();
+              // Re-probe after create(): the model becomes available immediately
+              // on completion, and Stage 1B must see the fresh availability.
+              setGate(await probeLanguageModel());
+            }}
+          />
+        </details>
         <StageRail
           phase={state.phase}
           errorCode={state.error?.code}
@@ -106,7 +111,20 @@ export function Workbench({ boot }: Props) {
 
       <SamplesBar onSelect={onSample} />
 
-      <main className="grid-three">
+      <nav className="pane-tabs" aria-label="Workbench panes">
+        {(["raw", "packet", "output"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`pane-tab ${activeTab === tab ? "active" : ""}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "raw" ? "01 RAW INPUT" : tab === "packet" ? "02 CLOUD PACKET" : "03 OUTPUT"}
+          </button>
+        ))}
+      </nav>
+
+      <main className="grid-three" data-active-pane={activeTab}>
         <RawInputPane
           raw={state.raw}
           matches={state.matches}

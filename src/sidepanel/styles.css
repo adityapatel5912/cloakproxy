@@ -338,10 +338,30 @@ mark.hl-safe { border-color: #0b6b4d; background: rgba(15,164,127,.10); }
 .alert p { margin: 8px 0 0; font-size: 11px; }
 .global-error { margin-top: 4px; }
 
-.statusbar {
-  display: flex; flex-wrap: wrap; gap: 14px;
-  color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em;
-  border-top: 1px solid var(--line); padding-top: 14px;
+/* Collapsible pre-flight card for the narrow side panel */
+.preflight-wrap > summary {
+  list-style: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); box-shadow: var(--shadow-sm);
+  padding: 7px 14px; font-size: 11px; font-weight: 650; color: var(--muted);
+}
+.preflight-wrap > summary::-webkit-details-marker { display: none; }
+.preflight-wrap[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 0; }
+.preflight-wrap[open] > .preflight-card { border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; }
+
+/* Narrow side-panel tabs: one pane at a time at <=620px */
+.pane-tabs { display: none; }
+@media (max-width: 620px) {
+  .pane-tabs { display: flex; gap: 6px; }
+  .pane-tab {
+    flex: 1; padding: 8px 6px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .03em;
+  }
+  .pane-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .grid-three[data-active-pane="raw"] > :not(.raw-pane),
+  .grid-three[data-active-pane="packet"] > :not(.packet-pane),
+  .grid-three[data-active-pane="output"] > :not(.output-pane) { display: none; }
 }
 
 /* Actionable local-only / auth remediation notice */

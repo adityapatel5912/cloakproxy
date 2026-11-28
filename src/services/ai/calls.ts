@@ -18,6 +18,7 @@ import {
   refactorPrompt,
   titlePrompt,
 } from "./prompts.js";
+import { generateFreeCloud } from "./freeCloud.js";
 
 export type Source = "ON_DEVICE" | "IN_CLOUD";
 
@@ -170,7 +171,22 @@ export async function refactorInCloud(
     return { data: text, meta: metaFor(start, response, policy.cloudModel) };
   } catch (err) {
     if (err instanceof RateLimitError) throw err;
-    return { data: "", meta: metaFor(start, response, policy.cloudModel, err) };
+    // Optional free-cloud fallback (AI Studio free tier → OpenRouter free model).
+    // Keeps the refactor REAL even when Firebase AI Logic needs Blaze billing.
+    try {
+      const fb = await generateFreeCloud(`${refactorPrompt(instruction)}\n\n${sanitized}`);
+      return {
+        data: fb.text,
+        meta: {
+          inferenceSource: "IN_CLOUD",
+          latencyMs: Math.round(performance.now() - start),
+          model: `${fb.provider}:${fb.model}`,
+          status: "OK",
+        },
+      };
+    } catch {
+      return { data: "", meta: metaFor(start, response, policy.cloudModel, err) };
+    }
   }
 }
 
@@ -203,7 +219,24 @@ export async function redTeamProbe(
     }
     return { data: probes, meta: metaFor(start, response, policy.cloudModel) };
   } catch (err) {
-    return { data: probes, meta: metaFor(start, response, policy.cloudModel, err) };
+    // Optional free-cloud fallback for the whole adversarial audit.
+    try {
+      const vectors = RED_TEAM_VECTORS.slice(0, Math.min(iterations, RED_TEAM_VECTORS.length));
+      let fallbackModel = "";
+      for (const vector of vectors) {
+        const fb = await generateFreeCloud(`${vector.prompt}\n\nSanitized code:\n${sanitized}`);
+        fallbackModel = `${fb.provider}:${fb.model}`;
+        const parsed = parseJsonLoose<RedTeamProbeResponse>(fb.text);
+        probes.push({
+          attackName: typeof parsed.attackName === "string" ? parsed.attackName : vector.name,
+          guess: typeof parsed.guess === "string" ? parsed.guess : "",
+          confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+        });
+      }
+      return { data: probes, meta: metaFor(start, response, fallbackModel) };
+    } catch {
+      return { data: probes, meta: metaFor(start, response, policy.cloudModel, err) };
+    }
   }
 }
 
